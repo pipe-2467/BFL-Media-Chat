@@ -1,0 +1,6 @@
+{
+  "appId": "com.bflmedia.chat",
+  "appName": "BFL Media Chat",
+  "webDir": ".",
+  "bundledWebRuntime": false
+}
