@@ -13,7 +13,8 @@ jobs:
       - name: Prepare Web Directory & Capacitor Config
         run: |
           mkdir -p www
-          cp index.html www/
+          # ค้นหาไฟล์ index.html (ไม่สนตัวพิมพ์เล็ก-ใหญ่) แล้วก๊อปปี้ไปไว้ใน www
+          find . -maxdepth 2 -iname "index.html" -exec cp {} www/index.html \;
           echo '{"appId":"com.bflmedia.chat","appName":"BFL Media Chat","webDir":"www"}' > capacitor.config.json
 
       - name: Build Android Project
