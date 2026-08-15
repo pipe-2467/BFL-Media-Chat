@@ -55,3 +55,20 @@ jobs:
         with:
           name: BFL-Chat-App
           path: android/app/build/outputs/apk/debug/app-debug.apk
+# ... (ส่วนบนเหมือนเดิม)
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Add Android & Sync
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      # ขั้นตอนนี้จะเอา AndroidManifest.xml ของคุณไปทับของระบบ
+      - name: Copy Config
+        run: cp AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+
+      - name: Build APK
+        run: |
+          cd android
+          ./gradlew assembleDebug
