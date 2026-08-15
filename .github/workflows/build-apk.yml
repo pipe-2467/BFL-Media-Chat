@@ -5,15 +5,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
-        with: { node-version: 18 }
+        with:
+          node-version: 18
+
+      - name: Prepare Web Directory & Capacitor Config
+        run: |
+          mkdir -p www
+          cp index.html www/
+          echo '{"appId":"com.bflmedia.chat","appName":"BFL Media Chat","webDir":"www"}' > capacitor.config.json
+
       - name: Build Android Project
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/android
           npx cap add android || true
           cp AndroidManifest.xml android/app/src/main/AndroidManifest.xml || true
+          npx cap copy android
           npx cap sync android
           cd android && chmod +x gradlew && ./gradlew assembleDebug
+
       - uses: actions/upload-artifact@v4
         with:
           name: "BFL-Chat-APK"
