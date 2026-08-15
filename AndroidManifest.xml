@@ -1,0 +1,5 @@
+<!-- สิทธิ์สำหรับหน้าต่างลอย -->
+<uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+<!-- สิทธิ์สำหรับคุยสายตอนปิดหน้าจอ -->
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.WAKE_LOCK" />
