@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BFL Media Chat</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { font-family: sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; margin: 0; }
+    .card { background: white; padding: 24px; border-radius: 12px; width: 100%; max-width: 500px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .hidden { display: none !important; }
+    input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; outline: none; }
+    button { width: 100%; padding: 12px; margin-top: 8px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; transition: 0.2s; }
+    .btn-guest { background: #6c757d; }
+    .btn-login { background: #1a73e8; }
+    .btn-call { background: #28a745; margin-bottom: 10px; }
+    .avatar-preview { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid #1a73e8; margin: 0 auto 10px; display: block; }
+    .header-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #ccc; }
+    .msg-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+    .action-link { font-size: 11px; color: #1a73e8; cursor: pointer; text-decoration: underline; margin-right: 8px; }
+    #chat-box { height: 350px; overflow-y: auto; border: 1px solid #eee; padding: 12px; margin: 10px 0; border-radius: 8px; background: #fafafa; }
+    .msg { margin-bottom: 10px; padding: 8px 12px; background: white; border-radius: 8px; border: 1px solid #e9ecef; display: flex; gap: 10px; align-items: flex-start; word-break: break-word; }
+    .msg-system { text-align: center; margin: 8px 0; font-size: 12px; color: #666; background: #eef2f7; padding: 6px 12px; border-radius: 12px; display: block; }
+  </style>
+</head>
+<body>
+
+<div class="card" id="selection-section">
+  <h2 style="text-align: center;">💬 BFL Media Chat</h2>
+  <button class="btn-guest" onclick="showSection('guest-input')">👤 เข้าแบบผู้มาเยือน (Guest)</button>
+  <button class="btn-login" onclick="showSection('email-input')">✉️ เข้าสู่ระบบ / สมัครด้วย อีเมล</button>
+</div>
+
+<div class="card hidden" id="guest-input">
+  <h2 style="text-align:center;">ตั้งชื่อ & รูปโปรไฟล์</h2>
+  <div style="text-align:center;">
+    <img id="guest-avatar-img" class="avatar-preview" src="https://cdn-icons-png.flaticon.com/512/149/149071.png">
+    <input type="file" id="avatar-file-guest" style="display:none;" accept="image/*" onchange="previewAvatar(this, 'guest-avatar-img')">
+    <button type="button" class="btn-guest" style="width:auto; padding:6px 16px; margin:0 auto 10px;" onclick="document.getElementById('avatar-file-guest').click()">📷 เลือกรูปโปรไฟล์</button>
+  </div>
+  <input type="text" id="guest-name" placeholder="ระบุชื่อที่ต้องการใช้ในแชท...">
+  <button class="btn-login" onclick="enterAsGuest()">เริ่มแชทเลย</button>
+</div>
+
+<div class="card hidden" id="email-input">
+  <h2>เข้าสู่ระบบ / สมัครสมาชิก</h2>
+  <input type="email" id="email" placeholder="ระบุ Email">
+  <input type="password" id="pass" placeholder="ระบุ รหัสผ่าน">
+  <button class="btn-login" onclick="authEmail('login')">เข้าสู่ระบบ</button>
+  <button class="btn-guest" onclick="authEmail('signup')">สมัครสมาชิกใหม่</button>
+</div>
+
+<div class="card hidden" id="chat-section">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <img id="user-header-avatar" class="header-avatar" src="https://cdn-icons-png.flaticon.com/512/149/149071.png">
+      <div>
+        <b id="user-display" style="display:block; font-size:14px;"></b>
+        <span class="action-link" onclick="changeName()">✏️ เปลี่ยนชื่อ</span>
+        <span class="action-link" onclick="document.getElementById('change-avatar-file').click()">📷 เปลี่ยนรูป</span>
+      </div>
+    </div>
+    <input type="file" id="change-avatar-file" style="display:none;" accept="image/*" onchange="uploadNewAvatar(this)">
+    <button onclick="logout()" style="width: auto; padding: 6px 12px; background: #dc3545; font-size: 12px; margin:0;">ออกจากห้อง</button>
+  </div>
+
+  <button class="btn-call" id="btn-toggle-call" onclick="startOrEndCall()">📞 เริ่ม/วาง สายโทรกลุ่ม</button>
+  
+  <div id="call-container" class="hidden" style="position: relative; width: 100%; height: 350px; border-radius: 8px; overflow: hidden; margin-bottom: 10px;">
+    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 40px; background: #000; z-index: 999;"></div>
+    <iframe id="call-frame" src="" allow="camera; microphone; display-capture; autoplay; fullscreen" style="width:100%; height:100%; border:none;"></iframe>
+  </div>
+
+  <div id="chat-box"></div>
+
+  <div style="display: flex; gap: 6px;">
+    <input type="text" id="msg-input" placeholder="พิมพ์ข้อความ..." onkeydown="if(event.key==='Enter') sendMessage()">
+    <button class="btn-login" style="width: 80px; margin:0;" onclick="sendMessage()">ส่ง</button>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://zdujhdwctclvwiwfbiyt.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkdWpoZHdjdGNsdndpd2ZiaXl0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MjEzODMsImV4cCI6MjEwMjA5NzM4M30.N1oUOJSZgZ-bUpBIObDeAr-OCiyLBuMPgAP3G6HIg-8";
+  const CALL_ROOM_URL = "https://demo.daily.co/hello"; 
+
+  const msgSound = new Audio("https://base44.app/api/apps/69f016f895905d8b1fec0f6a/files/mp/public/69f016f895905d8b1fec0f6a/ae37ddede_Chatmessage_notifica_4-1786765293216.mp3");
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let senderName = localStorage.getItem('chat_name') || "";
+  let myAvatarUrl = localStorage.getItem('chat_avatar') || "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+  let inCall = false;
+
+  window.addEventListener('DOMContentLoaded', () => {
+    if ("Notification" in window && Notification.permission !== "granted") {
+      Notification.requestPermission();
+    }
+    if (senderName) {
+      startChat();
+    } else {
+      showSection('selection-section');
+    }
+  });
+
+  function showSection(id) { 
+    document.querySelectorAll('.card').forEach(c => c.classList.add('hidden')); 
+    document.getElementById(id).classList.remove('hidden'); 
+  }
+
+  function startChat() { 
+    showSection('chat-section'); 
+    document.getElementById('user-display').innerText = senderName; 
+    document.getElementById('user-header-avatar').src = myAvatarUrl;
+    loadMessages(); 
+    subscribeRealtime(); 
+  }
+
+  function enterAsGuest() { 
+    const gName = document.getElementById('guest-name').value.trim();
+    if(!gName) return alert("ระบุชื่อก่อนครับ");
+    senderName = gName + " (Guest)"; 
+    localStorage.setItem('chat_name', senderName);
+    localStorage.setItem('chat_avatar', myAvatarUrl);
+    startChat(); 
+  }
+
+  function changeName() {
+    const newName = prompt("ใส่ชื่อใหม่ที่ต้องการใช้:", senderName);
+    if (newName && newName.trim() !== "") {
+      senderName = newName.trim();
+      localStorage.setItem('chat_name', senderName);
+      document.getElementById('user-display').innerText = senderName;
+    }
+  }
+
+  function logout() { 
+    localStorage.removeItem('chat_name'); 
+    localStorage.removeItem('chat_avatar'); 
+    senderName = "";
+    myAvatarUrl = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+    showSection('selection-section');
+  }
+
+  async function uploadNewAvatar(input) {
+    if (!input.files[0]) return;
+    const file = input.files[0];
+    const fileName = `${Date.now()}_${file.name}`;
+    const { data, error } = await supabaseClient.storage.from('chat-files').upload(fileName, file);
+    if (error) return alert("อัปโหลดรูปไม่สำเร็จ");
+    const { data: publicUrlData } = supabaseClient.storage.from('chat-files').getPublicUrl(fileName);
+    myAvatarUrl = publicUrlData.publicUrl;
+    localStorage.setItem('chat_avatar', myAvatarUrl);
+    document.getElementById('user-header-avatar').src = myAvatarUrl;
+  }
+
+  function previewAvatar(input, imgId) {
+    if (input.files && input.files[0]) {
+      const reader = new FileReader();
+      reader.onload = (e) => { 
+        document.getElementById(imgId).src = e.target.result; 
+        myAvatarUrl = e.target.result; 
+      };
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+
+  async function sendMessage() {
+    const input = document.getElementById('msg-input');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    await supabaseClient.from('massages').insert([{ 
+      sender: senderName, 
+      text: text, 
+      avatar_url: myAvatarUrl, 
+      type: 'chat' 
+    }]);
+  }
+
+  function appendMsg(msg) {
+    const box = document.getElementById('chat-box');
+    if (msg.sender === "System") {
+      const sysDiv = document.createElement('div');
+      sysDiv.className = "msg-system";
+      sysDiv.innerText = msg.text;
+      box.appendChild(sysDiv);
+    } else {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = "msg";
+      msgDiv.innerHTML = `
+        <img src="${msg.avatar_url || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}" class="msg-avatar">
+        <div style="width:100%;">
+          <b style="color:#1a73e8; font-size:13px;">${msg.sender}</b>
+          <div style="font-size:14px; color:#333;">${msg.text}</div>
+        </div>
+      `;
+      box.appendChild(msgDiv);
+    }
+    box.scrollTop = box.scrollHeight;
+  }
+
+  // ระบบ Realtime ตรวจจับคอลัมน์ type เพื่อยิง Notification
+  function subscribeRealtime() {
+    supabaseClient.channel('realtime').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'massages' }, payload => {
+      const newMsg = payload.new;
+      appendMsg(newMsg);
+      msgSound.play().catch(() => {});
+
+      // ส่ง Notification เฉพาะเวลาอยู่นอกแอพ (document.hidden)
+      if (document.hidden && Notification.permission === "granted") {
+        if (newMsg.type === 'call_start') {
+          new Notification("📞 สายโทรกลุ่ม", { body: `${newMsg.caller || 'เพื่อน'} เริ่มโทรกลุ่มแล้ว` });
+        } else if (newMsg.type === 'chat') {
+          new Notification(newMsg.sender, { body: newMsg.text });
+        }
+        // type: 'call_end' จะถูกข้ามไป ไม่ถูกส่งแจ้งเตือนภายนอก
+      }
+    }).subscribe();
+  }
+
+  async function loadMessages() { 
+    const { data } = await supabaseClient.from('massages').select('*').order('created_at', { ascending: true }); 
+    if (data) {
+      document.getElementById('chat-box').innerHTML = "";
+      data.forEach(appendMsg); 
+    }
+  }
+
+  async function startOrEndCall() {
+    inCall = !inCall;
+    const container = document.getElementById('call-container');
+    const frame = document.getElementById('call-frame');
+    
+    if (inCall) {
+      container.classList.remove('hidden');
+      frame.src = CALL_ROOM_URL;
+      
+      // ส่งข้อมูลระบุ type = call_start และ caller = ชื่อผู้โทร
+      await supabaseClient.from('massages').insert([{
+        sender: "System",
+        caller: senderName,
+        text: `📞 ${senderName} เริ่มโทรกลุ่มแล้ว`,
+        type: 'call_start'
+      }]);
+    } else {
+      container.classList.add('hidden');
+      frame.src = "";
+      
+      // ส่งข้อมูลระบุ type = call_end
+      await supabaseClient.from('massages').insert([{
+        sender: "System",
+        text: "🛑 การโทรกลุ่มสิ้นสุดลงแล้ว",
+        type: 'call_end'
+      }]);
+    }
+  }
+</script>
+</body>
+</html>
