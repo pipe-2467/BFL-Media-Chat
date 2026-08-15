@@ -1,0 +1,57 @@
+name: Build Android APK (Simple)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      # สร้างไฟล์ package.json และ capacitor.config.json อัตโนมัติในเบื้องหลัง
+      - name: Initialize Capacitor Project
+        run: |
+          npm init -y
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npx cap init "BFL Media Chat" "com.bflmedia.chat" --web-dir .
+
+      # เพิ่ม Platform Android และ ซิงค์ไฟล์ index.html
+      - name: Add Android Platform
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      # ปรับสิทธิ์ไฟล์ Gradle ให้รันได้
+      - name: Make Gradlew Executable
+        run: |
+          cd android
+          chmod +x gradlew
+
+      # สั่ง Build เป็นไฟล์ APK
+      - name: Build APK
+        run: |
+          cd android
+          ./gradlew assembleDebug
+
+      # อัปโหลดไฟล์ APK ออกมาให้โหลดไปใช้
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BFL-Chat-App
+          path: android/app/build/outputs/apk/debug/app-debug.apk
