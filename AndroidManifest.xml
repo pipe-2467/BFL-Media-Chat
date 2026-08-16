@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- เพิ่มสิทธิ์แสดงผลเหนือแอปอื่น (Overlay) -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
         android:allowBackup="true"
@@ -18,6 +20,7 @@
             android:name=".MainActivity" 
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode" 
             android:launchMode="singleInstance"
+            android:supportsPictureInPicture="true"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
