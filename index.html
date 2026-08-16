@@ -16,6 +16,7 @@
     .btn-login { background: #1a73e8; }
     .btn-call { background: #28a745; margin-bottom: 10px; }
     .btn-end { background: #dc3545; margin-bottom: 10px; }
+    .btn-overlay { background: #f39c12; margin-bottom: 10px; }
     .avatar-preview { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid #1a73e8; margin: 0 auto 10px; display: block; }
     .header-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #ccc; }
     .msg-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
@@ -27,9 +28,13 @@
     /* สไตล์สำหรับกล่องวิดีโอแบบขยาย / ย่อ (Floating) */
     .call-normal { position: relative; width: 100%; height: 350px; border-radius: 8px; overflow: hidden; margin-bottom: 10px; transition: all 0.3s ease; }
     .call-minimized { position: fixed !important; bottom: 20px; right: 20px; width: 160px !important; height: 220px !important; z-index: 99999; box-shadow: 0 8px 24px rgba(0,0,0,0.3); border-radius: 12px; }
+    .call-fullscreen { position: fixed !important; top: 0; left: 0; width: 100vw !important; height: 100vh !important; z-index: 99999; border-radius: 0; margin: 0; }
     
     .call-controls { position: absolute; top: 10px; right: 10px; z-index: 100000; display: flex; gap: 6px; }
     .icon-btn { width: 32px; height: 32px; background: rgba(0,0,0,0.6); border: none; border-radius: 6px; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+    
+    /* แถบสีดำปิดทับ Powered by Daily ด้านบน */
+    .hide-daily-logo { position: absolute; top: 0; left: 0; width: 100%; height: 50px; background: #121212; z-index: 99999; pointer-events: none; }
   </style>
 </head>
 <body>
@@ -44,7 +49,7 @@
   <h2 style="text-align:center;">ตั้งชื่อ & รูปโปรไฟล์</h2>
   <div style="text-align:center;">
     <img id="guest-avatar-img" class="avatar-preview" src="https://cdn-icons-png.flaticon.com/512/149/149071.png">
-    <input type="file" id="avatar-file-guest" style="display:none;" accept="image/*" onchange="previewAvatar(this, 'guest-avatar-img')">
+    <input type="file" id="avatar-file-guest" style="display:none;" accept="image/*" onchange="uploadAvatarGuest(this)">
     <button type="button" class="btn-guest" style="width:auto; padding:6px 16px; margin:0 auto 10px;" onclick="document.getElementById('avatar-file-guest').click()">📷 เลือกรูปโปรไฟล์</button>
   </div>
   <input type="text" id="guest-name" placeholder="ระบุชื่อที่ต้องการใช้ในแชท...">
@@ -73,10 +78,15 @@
     <button onclick="logout()" style="width: auto; padding: 6px 12px; background: #dc3545; font-size: 12px; margin:0;">ออกจากห้อง</button>
   </div>
 
+  <!-- ปุ่มขอสิทธิ์ Overlay แสดงผลเหนือแอปอื่น (เปิดใช้เฉพาะบน Android APK) -->
+  <button class="btn-overlay hidden" id="btn-request-overlay" onclick="requestOverlayPermission()">⚙️ อนุญาตให้แสดงผลเหนือแอปอื่น</button>
   <button class="btn-call" id="btn-toggle-call" onclick="startOrEndCall()">📞 เริ่มโทรกลุ่ม</button>
   
   <!-- กล่องควบคุมหน้าต่างการโทร -->
   <div id="call-container" class="call-normal hidden">
+    <!-- แถบปิดบัง Powered by Daily ด้านบน -->
+    <div class="hide-daily-logo"></div>
+    
     <div class="call-controls">
       <!-- ปุ่ม Picture-in-Picture ตามรูปภาพ -->
       <button class="icon-btn" onclick="togglePipMode()" title="เปิดหน้าต่างลอยภายนอก">
@@ -85,7 +95,7 @@
           <path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z"/>
         </svg>
       </button>
-      <!-- ปุ่มย่อ / ขยายหน้าต่างภายในแอป -->
+      <!-- ปุ่มขยายเต็มจอ / ย่อขยาย -->
       <button class="icon-btn" id="btn-resize" onclick="toggleMinimizeCall()" title="ย่อ/ขยาย">↘️</button>
     </div>
     <iframe id="call-frame" src="" allow="camera; microphone; display-capture; autoplay; fullscreen" style="width:100%; height:100%; border:none;"></iframe>
@@ -116,12 +126,28 @@
     if ("Notification" in window && Notification.permission !== "granted") {
       Notification.requestPermission();
     }
+
+    // แสดงปุ่มขอสิทธิ์ Overlay หากเปิดแอปบน Android APK ผ่าน Capacitor
+    if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+      const overlayBtn = document.getElementById('btn-request-overlay');
+      if (overlayBtn) overlayBtn.classList.remove('hidden');
+    }
+
     if (senderName) {
       startChat();
     } else {
       showSection('selection-section');
     }
   });
+
+  // ฟังก์ชันส่ง User ไปยังหน้าตั้งค่าเพื่อกดอนุญาต "แสดงผลเหนือแอปอื่น" (Overlay)
+  function requestOverlayPermission() {
+    if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+      window.location.href = "intent:#Intent;action=android.settings.action.MANAGE_OVERLAY_PERMISSION;package=com.bflmedia.chat;end";
+    } else {
+      alert("ฟังก์ชันนี้รองรับเฉพาะการใช้งานบน Android APK ครับ");
+    }
+  }
 
   function showSection(id) { 
     document.querySelectorAll('.card').forEach(c => c.classList.add('hidden')); 
@@ -162,6 +188,20 @@
     showSection('selection-section');
   }
 
+  async function uploadAvatarGuest(input) {
+    if (!input.files[0]) return;
+    const file = input.files[0];
+    const fileName = `guest_${Date.now()}_${file.name}`;
+    const { data, error } = await supabaseClient.storage.from('chat-files').upload(fileName, file);
+    if (error) {
+      alert("อัปโหลดไม่สำเร็จ: โปรดตรวจสอบ Supabase Bucket 'chat-files' ว่าตั้งเป็น Public แล้วหรือยัง");
+      return;
+    }
+    const { data: publicUrlData } = supabaseClient.storage.from('chat-files').getPublicUrl(fileName);
+    myAvatarUrl = publicUrlData.publicUrl;
+    document.getElementById('guest-avatar-img').src = myAvatarUrl;
+  }
+
   async function uploadNewAvatar(input) {
     if (!input.files[0]) return;
     const file = input.files[0];
@@ -172,17 +212,6 @@
     myAvatarUrl = publicUrlData.publicUrl;
     localStorage.setItem('chat_avatar', myAvatarUrl);
     document.getElementById('user-header-avatar').src = myAvatarUrl;
-  }
-
-  function previewAvatar(input, imgId) {
-    if (input.files && input.files[0]) {
-      const reader = new FileReader();
-      reader.onload = (e) => { 
-        document.getElementById(imgId).src = e.target.result; 
-        myAvatarUrl = e.target.result; 
-      };
-      reader.readAsDataURL(input.files[0]);
-    }
   }
 
   async function sendMessage() {
@@ -247,6 +276,28 @@
     }
   }
 
+  async function sendSystemMessage(text) {
+    await supabaseClient.from('massages').insert([{ 
+      sender: "System", 
+      text: text, 
+      avatar_url: "", 
+      type: 'system' 
+    }]);
+  }
+
+  async function checkActiveCallState() {
+    const { data } = await supabaseClient.from('massages')
+      .select('*')
+      .in('text', ['เริ่มโทรกลุ่มแล้ว', 'การโทรกลุ่มสิ้นสุดลงแล้ว'])
+      .order('created_at', { ascending: false })
+      .limit(1);
+    
+    if (data && data.length > 0) {
+      return data[0].text === 'เริ่มโทรกลุ่มแล้ว';
+    }
+    return false;
+  }
+
   async function startOrEndCall() {
     const container = document.getElementById('call-container');
     const frame = document.getElementById('call-frame');
@@ -256,46 +307,57 @@
       const hasPermission = await requestDevicePermissions();
       if (!hasPermission) return;
 
+      const isCallActive = await checkActiveCallState();
+
       inCall = true;
       container.classList.remove('hidden');
       frame.src = CALL_ROOM_URL;
       btnToggle.innerText = "🛑 วางสายโทรกลุ่ม";
       btnToggle.className = "btn-end";
+
+      if (!isCallActive) {
+        await sendSystemMessage(`${senderName} เริ่มโทรกลุ่มแล้ว`);
+      } else {
+        await sendSystemMessage(`${senderName} เข้าร่วมการโทรกลุ่ม`);
+      }
     } else {
       inCall = false;
       container.classList.add('hidden');
       frame.src = "";
       btnToggle.innerText = "📞 เริ่มโทรกลุ่ม";
       btnToggle.className = "btn-call";
+
+      await sendSystemMessage(`${senderName} ออกจากการโทรกลุ่ม`);
     }
   }
 
-  // ฟังก์ชันย่อ/ขยายหน้าต่างโทรในแอป
   function toggleMinimizeCall() {
     const container = document.getElementById('call-container');
     const btnResize = document.getElementById('btn-resize');
     
     if (!isMinimized) {
       container.classList.remove('call-normal');
-      container.classList.add('call-minimized');
+      container.classList.add('call-fullscreen');
       btnResize.innerText = "↖️";
       isMinimized = true;
     } else {
-      container.classList.remove('call-minimized');
+      container.classList.remove('call-fullscreen');
       container.classList.add('call-normal');
       btnResize.innerText = "↘️";
       isMinimized = false;
     }
   }
 
-  // ฟังก์ชันเรียกใช้ Picture-in-Picture สำหรับเบราว์เซอร์
   async function togglePipMode() {
+    // พยายามขอสิทธิ์แสดงผลเหนือแอปอื่นก่อนเปิด PiP หากรันบน Native APK
+    requestOverlayPermission();
+
     const frame = document.getElementById('call-frame');
     if ('documentPictureInPicture' in window) {
       try {
         const pipWindow = await window.documentPictureInPicture.requestWindow({
-          width: 300,
-          height: 400,
+          width: 320,
+          height: 450,
         });
         pipWindow.document.body.appendChild(frame);
       } catch (e) {
